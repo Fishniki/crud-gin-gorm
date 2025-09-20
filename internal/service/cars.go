@@ -6,7 +6,6 @@ import (
 	"crudwebsocket/dto"
 	"crudwebsocket/model"
 	"errors"
-	"fmt"
 
 	"github.com/google/uuid"
 )
@@ -27,7 +26,6 @@ func NewCars(carsRepsitory domain.CarsRepository) domain.CarsService {
 func (c *CarsService) Create(ctx context.Context, req dto.CreateCarsRequest) error {
 
 	existingCars, err := c.CarsRepository.FindByName(ctx, req.Nama)
-	fmt.Println(existingCars)
 	if existingCars.Id != uuid.Nil {
 		return errors.New("Nama sudah di gunakan")
 	}

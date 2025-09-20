@@ -4,6 +4,7 @@ import (
 	"context"
 	"crudwebsocket/domain"
 	"crudwebsocket/dto"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -29,7 +30,7 @@ func NewCars(app *gin.Engine, carsService domain.CarsService, validate *validato
 	app.GET("/cars/getall", ba.Index)
 	app.GET("/cars/getbyid/:id", ba.Show)
 	app.PUT("/cars/update/:id", ba.Update)
-	app.DELETE("cars/delet/:id", ba.Delete)
+	app.DELETE("/cars/delet/:id", ba.Delete)
 
 	app.Static("/media", "gallery")
 }
@@ -46,7 +47,7 @@ func (ba carsApi) Create(ctx *gin.Context) {
 	}
 
 	file, err := ctx.FormFile("image")
-	filename := uuid.NewString() + file.Filename
+	filename := uuid.NewString() + filepath.Ext(file.Filename)
 	path := filepath.Join("gallery", filename)
 
 	req.Image = filename
@@ -64,7 +65,7 @@ func (ba carsApi) Create(ctx *gin.Context) {
 	}
 
 	if err = ctx.SaveUploadedFile(file, path); err != nil {
-		ctx.JSON(http.StatusInternalServerError, dto.CreateResponsError("failed to save image: "+err.Error()))
+		ctx.JSON(http.StatusInternalServerError, dto.CreateResponsError("failed to save image: "+ err.Error()))
 		return
 	}
 
@@ -138,6 +139,7 @@ func (ba carsApi) Update(ctx *gin.Context) {
 
 		// simpan file baru
 		filename := uuid.NewString() + filepath.Ext(file.Filename)
+		fmt.Println(filepath.Ext(file.Filename))
 		newPath := filepath.Join("gallery", filename)
 		if err := ctx.SaveUploadedFile(file, newPath); err != nil {
 			ctx.JSON(http.StatusInternalServerError, dto.CreateResponsError("failed to save image: "+err.Error()))
@@ -167,11 +169,24 @@ func (ba carsApi) Delete(ctx *gin.Context) {
 
 	id := ctx.Param("id")
 
-	err := ba.carsService.Delete(c, id)
-	if err != nil {
+	existingCar, err := ba.carsService.Show(c, id)
+
+	if err != nil || existingCar.Id == uuid.Nil {
+		ctx.JSON(http.StatusNotFound, dto.CreateResponsError("Id tidak di temukan " + err.Error()))
+		return
+	}
+
+	if err := ba.carsService.Delete(c, id); err != nil{
 		ctx.JSON(http.StatusInternalServerError, dto.CreateResponsError(err.Error()))
 		return
 	}
+	
+	
+	if existingCar.Image != "" {
+		oldPath := filepath.Join("gallery", existingCar.Image)
+		_ = os.Remove(oldPath) // abaikan error kalau file tidak ada
+	}
+
 
 	ctx.JSON(http.StatusOK, dto.CreateResponsSucces("Data Berhasil di delete"))
 
